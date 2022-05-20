@@ -678,7 +678,7 @@ class Discriminator(nn.Module):
 
     def forward(self, input):
         out = self.convs(input)
-
+        # import pdb; pdb.set_trace()
         batch, channel, height, width = out.shape
         group = min(batch, self.stddev_group)
         stddev = out.view(

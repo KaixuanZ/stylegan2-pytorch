@@ -330,7 +330,8 @@ def train(args, loader, generator, discriminator, g_optim, d_optim, g_ema, devic
 
 
 if __name__ == "__main__":
-    device = "cuda"
+    # device = "cuda"
+    device = torch.device('cpu')
 
     parser = argparse.ArgumentParser(description="StyleGAN2 trainer")
 
@@ -486,10 +487,10 @@ if __name__ == "__main__":
 
         except ValueError:
             pass
-
+        import pdb; pdb.set_trace()
         generator.load_state_dict(ckpt["g"])
         discriminator.load_state_dict(ckpt["d"])
-        g_ema.load_state_dict(ckpt["g_ema"])
+        g_ema.load_state_dict(ckpt["g_ema"], strict=False)
 
         g_optim.load_state_dict(ckpt["g_optim"])
         d_optim.load_state_dict(ckpt["d_optim"])

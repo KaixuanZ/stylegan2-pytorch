@@ -2,11 +2,12 @@ import argparse
 
 import torch
 from torchvision import utils
-from model import Generator
+from model import Generator, Discriminator
 from tqdm import tqdm
+from dataset import Dataset
 
 
-def generate(args, g_ema, device, mean_latent):
+def generate(args, g_ema, D, device, mean_latent):
 
     with torch.no_grad():
         g_ema.eval()
@@ -16,7 +17,8 @@ def generate(args, g_ema, device, mean_latent):
             sample, _ = g_ema(
                 [sample_z], truncation=args.truncation, truncation_latent=mean_latent
             )
-
+            # import pdb; pdb.set_trace()
+            print("Fake images:", torch.sigmoid(D(sample)).mean())
             utils.save_image(
                 sample,
                 f"sample/{str(i).zfill(6)}.png",
@@ -32,12 +34,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate samples from the generator")
 
     parser.add_argument(
-        "--size", type=int, default=1024, help="output image size of the generator"
+        "--size", type=int, default=256, help="output image size of the generator"
     )
     parser.add_argument(
         "--sample",
         type=int,
-        default=1,
+        default=64,
         help="number of samples to be generated for each image",
     )
     parser.add_argument(
@@ -71,14 +73,25 @@ if __name__ == "__main__":
     g_ema = Generator(
         args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier
     ).to(device)
-    checkpoint = torch.load(args.ckpt, map_location=device)
+    discriminator = Discriminator(
+        args.size, channel_multiplier=args.channel_multiplier
+    ).to(device)
+
+    ckpt = torch.load(args.ckpt, map_location=lambda storage, loc: storage)
+    # ckpt = torch.load(args.ckpt, map_location=device)
+    dataset = Dataset(path = 'dataset/FFHQ_256')
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=64, shuffle=False)
+    true_imgs = next(iter(dataloader))
     # import pdb; pdb.set_trace()
-    g_ema.load_state_dict(checkpoint["g_ema"], strict=False)
+    discriminator.load_state_dict(ckpt["d"])
+    g_ema.load_state_dict(ckpt["g_ema"], strict=False)
+
     # import pdb; pdb.set_trace()
     if args.truncation < 1:
         with torch.no_grad():
             mean_latent = g_ema.mean_latent(args.truncation_mean)
     else:
         mean_latent = None
-
-    generate(args, g_ema, device, mean_latent)
+    # import pdb; pdb.set_trace()
+    print("True images:", torch.sigmoid(discriminator(true_imgs)).mean())
+    generate(args, g_ema, discriminator, device, mean_latent)
